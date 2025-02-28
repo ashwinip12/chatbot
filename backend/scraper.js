@@ -1,27 +1,31 @@
 
 
+const puppeteer = require('puppeteer');
 
-
-const axios = require('axios');
-const cheerio = require('cheerio');
-
-async function scrapeDocumentation(url, query) {
+async function fetchDocumentation(url) {
     try {
-        const response = await axios.get(url);
-        const $ = cheerio.load(response.data);
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
 
-        // Extract first paragraph or main content block
-        const firstParagraph = $('p').first().text().trim();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36');
 
-        if (firstParagraph) {
-            return `📄 ${firstParagraph}`;
-        }
+        console.log(`🔎 Fetching documentation from: ${url}`);
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        return null;
+        const content = await page.evaluate(() => {
+            const elements = Array.from(document.querySelectorAll('h1, h2, h3, p, li, code, pre'));
+            return elements.map(el => el.innerText.trim()).filter(text => text.length > 0).join('\n');
+        });
+
+        await browser.close();
+        return content;
     } catch (error) {
-        console.error(`❌ Failed to scrape ${url}:`, error.message);
-        return null;  // If scraping fails, don't crash
+        console.error(`❌ Failed to fetch documentation from ${url}:`, error.message);
+        return null;
     }
 }
 
-module.exports = { scrapeDocumentation };
+module.exports = { fetchDocumentation };

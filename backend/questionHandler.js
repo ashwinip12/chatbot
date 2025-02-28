@@ -1,52 +1,66 @@
 
 
-const CDP_DETAILS = {
-    segment: {
-        name: "Segment",
-        description: "Segment is a Customer Data Platform (CDP) that helps businesses collect, unify, and route customer data into various tools for analytics, marketing, and data warehousing.",
-        url: "https://segment.com/docs/"
-    },
-    mparticle: {
-        name: "mParticle",
-        description: "mParticle is a data infrastructure platform designed to collect, unify, and activate customer data across various tools and services.",
-        url: "https://docs.mparticle.com/"
-    },
-    lytics: {
-        name: "Lytics",
-        description: "Lytics is a Customer Data Platform (CDP) that helps businesses personalize customer experiences using machine learning-based segmentation.",
-        url: "https://docs.lytics.com/"
-    },
-    zeotap: {
-        name: "Zeotap",
-        description: "Zeotap is a Customer Data Platform (CDP) that helps brands unify and enrich customer data for more effective marketing — all with strict data privacy compliance.",
-        url: "https://docs.zeotap.com/home/en-us/"
-    }
+const { fetchDocumentation } = require('./scraper');
+
+const CDP_DOCS = {
+    segment: 'https://segment.com/docs/',
+    mparticle: 'https://docs.mparticle.com/',
+    lytics: 'https://docs.lytics.com/',
+    zeotap: 'https://docs.zeotap.com/home/en-us/'
 };
 
-function determineCDP(question) {
-    const lowerQuestion = question.toLowerCase();
-
-    for (const cdp in CDP_DETAILS) {
-        if (lowerQuestion.includes(cdp)) {
-            return cdp;
-        }
-    }
-
+function detectCDP(question) {
+    const lower = question.toLowerCase();
+    if (lower.includes('segment')) return 'segment';
+    if (lower.includes('mparticle')) return 'mparticle';
+    if (lower.includes('lytics')) return 'lytics';
+    if (lower.includes('zeotap')) return 'zeotap';
     return null;
 }
 
 async function handleQuestion(question) {
-    const cdp = determineCDP(question);
+    const cdp = detectCDP(question);
 
-    if (!cdp) {
-        return "❌ I only handle questions related to Segment, mParticle, Lytics, and Zeotap.\n\n" +
-            "📖 A Customer Data Platform (CDP) collects and unifies first-party customer data from multiple sources to build a single, coherent view of each customer.";
+    if (cdp) {
+        const url = CDP_DOCS[cdp];
+        const content = await fetchDocumentation(url);
+        
+        if (!content) {
+            return `⚠️ Unable to fetch content from ${cdp}'s official documentation. Please visit [${cdp} Documentation](${url}) directly.`;
+        }
+
+        const relevantInfo = extractRelevantSection(content, question);
+        return formatResponse(cdp, relevantInfo, url);
     }
 
-    const { name, description, url } = CDP_DETAILS[cdp];
+    if (question.includes('compare')) {
+        return handleComparisonQuestion(question);
+    }
 
-    // Only show friendly message + official documentation
-    return `📌 **${name}**\n${description}\n\n📖 For additional information, please refer to the official documentation: ${url}`;
+    return "I specialize in questions about Segment, mParticle, Lytics, and Zeotap. Please ask me something about these platforms!";
+}
+
+function extractRelevantSection(content, question) {
+    const lines = content.split('\n');
+    const lowerQuestion = question.toLowerCase();
+
+    const matchedLines = lines.filter(line =>
+        lowerQuestion.split(' ').some(word => line.toLowerCase().includes(word))
+    );
+
+    return matchedLines.slice(0, 10).join('\n') || "No relevant content found. Please check the official documentation.";
+}
+
+function formatResponse(cdp, answer, url) {
+    return `📖 **${cdp.toUpperCase()} Documentation:**\n\n${answer}\n\n🔗 [Official Documentation](${url})`;
+}
+
+function handleComparisonQuestion(question) {
+    return `🔎 **Comparison Feature Coming Soon!** For now, please check:
+- [Segment Docs](https://segment.com/docs/)
+- [mParticle Docs](https://docs.mparticle.com/)
+- [Lytics Docs](https://docs.lytics.com/)
+- [Zeotap Docs](https://docs.zeotap.com/home/en-us/)`;
 }
 
 module.exports = { handleQuestion };
